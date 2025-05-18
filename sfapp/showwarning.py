@@ -9,13 +9,11 @@ from typing import List, TextIO
 
 # ANSI color codes for terminal output
 if stdout.isatty():
-    red = "\x1b[31m"
     yellow = "\x1b[33m"
     gray = "\x1b[2m"
-    white = "\x1b[1m"
     reset = "\x1b[0m"
 else:
-    red = yellow = gray = white = reset = ""
+    yellow = gray = reset = ""
 
 
 def showwarning(
