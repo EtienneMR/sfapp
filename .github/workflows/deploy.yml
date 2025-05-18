@@ -139,6 +139,8 @@ jobs:
       - changes
     if: needs.changes.outputs.main == 'true' && (needs.changes.outputs.push == 'true' || github.event.inputs.job_to_run == 'publish')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
