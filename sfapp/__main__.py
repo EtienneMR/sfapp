@@ -4,13 +4,28 @@ import warnings
 from argparse import ArgumentParser
 from pathlib import Path
 from sys import exit
+from typing import TextIO
 
 from sfapp.classes.singlefileappbuilder import SingleFileAppBuilder
 from sfapp.showwarning import showwarning
 
 
 def main():
-    warnings.showwarning = showwarning
+    warnings_count = 0
+
+    def register_warning(
+        message: Warning | str,
+        category: type[Warning],
+        filename: str,
+        lineno: int,
+        file: TextIO | None = None,
+        line: str | None = None,
+    ):
+        nonlocal warnings_count
+        warnings_count += 1
+        return showwarning(message, category, filename, lineno, file, line)
+
+    warnings.showwarning = register_warning
 
     parser = ArgumentParser(
         description="Build a single-file app from a Python package."
@@ -44,6 +59,11 @@ def main():
         to_stdout=to_stdout,
     )
     builder.build(args.output)
+
+    if warnings_count:
+        warnings.warn(
+            f"Build completed with {warnings_count} warning{'s' if warnings_count>1 else ''}"
+        )
 
 
 if __name__ == "__main__":

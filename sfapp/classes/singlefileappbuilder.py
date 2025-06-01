@@ -81,35 +81,50 @@ class SingleFileAppBuilder:
     ) -> List[SourceFile]:
         """Sort files topologically based on their dependencies.
 
-        Raises:
-            ImportError: If an import cycle is detected.
+        Warns:
+            A warning is issued if an import cycle is detected.
 
         Returns:
             List of files in topological order.
         """
         self.log(f"Building dependency graph for {len(files)} files", 1)
-        graph: Dict[SourceFile, int] = defaultdict(int)
+        file_to_dependants: Dict[SourceFile, Set[SourceFile]] = defaultdict(set)
         for file in files.values():
-            graph[file]  # ensure key exists
-            for dep in file.imports:
-                if dep in files:
-                    graph[files[dep]] += 1
+            file_to_dependants[file]  # ensure key exists
+            for dependant in file.imports:
+                if dependant in files:
+                    file_to_dependants[files[dependant]].add(file)
 
         sorted_files: List[SourceFile] = []
         while True:
-            zero = [f for f, c in graph.items() if c == 0]
-            if not zero:
+            independant_files = [
+                file
+                for file, dependant in file_to_dependants.items()
+                if len(dependant) == 0
+            ]
+            if not independant_files:
                 break
-            current = zero[0]
-            del graph[current]
-            sorted_files.insert(0, current)
-            self.log(f"Ordered {current.src.name}", 2)
-            for dep in current.imports:
-                if dep in files:
-                    graph[files[dep]] -= 1
-        if graph:
-            cycle = ", ".join(f.src.name for f in graph)
-            raise ImportError(f"Import cycle detected: {cycle}")
+            processed_file = independant_files[0]
+            del file_to_dependants[processed_file]
+            sorted_files.insert(0, processed_file)
+            self.log(f"Ordered {processed_file.src.name}", 2)
+            for dependant in processed_file.imports:
+                if dependant in files:
+                    file_to_dependants[files[dependant]].remove(processed_file)
+
+        if file_to_dependants:
+            warn(
+                f"Import cycle detected during topological sort, files may not be correctly sorted"
+            )
+
+            for file, dependants in file_to_dependants.items():
+
+                self.log(
+                    f"Dependants of {file.src.name}: {", ".join(i.src.name for i in dependants)}",
+                    3,
+                )
+                sorted_files.insert(0, file)
+
         return sorted_files
 
     def generate(
@@ -163,6 +178,7 @@ class SingleFileAppBuilder:
         content = self.generate(sorted_files, external_imports)
 
         if self.to_stdout:
+            self.log(f"Written output to stdout", 2)
             print(content)
         else:
             output.write_text(content, encoding="utf-8")
